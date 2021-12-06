@@ -3,7 +3,7 @@ import scala.collection.immutable.IntMap
 import scala.annotation.tailrec
 
 @main
-def problem6(): Unit = {
+def solve_problem6(): Unit = {
   val initial_population = IntMap.from(
     Problem6.input
       .split(",")
