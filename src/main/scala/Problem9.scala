@@ -6,36 +6,18 @@ def problem9_solve(): Unit = {
 
   println(input)
   val low_points = input.depths.map((sample_point, depth) =>
-    if input.sample.tupled(sample_point).forall(s => depth.depth < s.depth) then
+    if input.sample.tupled(sample_point).forall(s => depth < s) then
       (sample_point -> Some(depth)
     )
     else (sample_point -> None)
   )
 
-  val risk_level = low_points.values.flatten.map(_.depth + 1).sum
+  val risk_level = low_points.values.flatten.map(_ + 1).sum
   println("Risk level: " + risk_level)
 
-  for ((c, d), k) <- low_points.filter(_._2.isDefined).zipWithIndex do
-    println(k + "=" + c.toString + ": " + d.get.depth)
-    input.depths(c) = Depth(input.depths(c).depth, Some(k))
-
-  println(input)
-
 }
 
-case class Depth(depth: Int, basin_id: Option[Int]) {
-  override def toString: String = {
-    val basin_id_str = basin_id match {
-      case Some(id) => "(" + id + ")\t"
-      case None     => "\t"
-    }
-    depth + basin_id_str
-  }
-}
-object Depth {
-  def fromDepth(depth: Int): Depth = Depth(depth, None)
-}
-
+type Depth = Int
 case class HeightMap(depths: mutable.Map[(Int, Int), Depth]) {
   override def toString: String = {
     val max_x = depths.keys.map(_._1).max
@@ -59,23 +41,17 @@ case class HeightMap(depths: mutable.Map[(Int, Int), Depth]) {
     if depths.get((x, y)).isDefined
   yield (x, y))
 
-  def grow_basin(basin: Seq[(Int, Int)]): Seq[(Int, Int)] = {
-    val new_basin = basin.flatMap(p => neighbors(p._1, p._2))
-    if (new_basin.size == basin.size) basin
-    else grow_basin(new_basin)
-  }
   def sample(x0: Int, y0: Int): Seq[Depth] =
     return neighbors(x0, y0).map(depths(_))
 }
 
 object Problem9 {
-
   def parse(input: String): HeightMap = {
     val lines = input.split("\n")
     val map = lines.zipWithIndex
       .map { case (line, y) =>
         line.zipWithIndex.map { case (c, x) =>
-          ((x, y), Depth.fromDepth(c.toString.toInt))
+          ((x, y), c.toString.toInt)
         }
       }
       .flatten
