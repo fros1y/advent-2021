@@ -4,7 +4,6 @@ import scala.collection.mutable as mutable
 def problem9_solve(): Unit = {
   val input = Problem9.parse(Problem9.input)
 
-  println(input)
   val low_points = input.depths.map((sample_point, depth) =>
     if input.sample.tupled(sample_point).forall(s => depth < s) then
       (sample_point -> Some(depth)
@@ -35,8 +34,7 @@ def problem9_solve(): Unit = {
       node: Coord
   ): Set[(Int, Int)] = {
     val neighbors = graph(node)
-    if neighbors.isEmpty then Set(node)
-    if neighbors.forall(visited) then Set(node)
+    if neighbors.isEmpty || neighbors.forall(visited) then Set(node)
     else {
       val next = neighbors.filterNot(visited)
       next.flatMap(n => clique(graph, visited + n, n)) + node
@@ -53,7 +51,7 @@ def problem9_solve(): Unit = {
     }
 
   val top_3 = cliques.sorted.takeRight(3)
-  println(top_3.product)
+  println(s"Part 2 product: " + top_3.product)
 }
 
 type Coord = (Int, Int)
