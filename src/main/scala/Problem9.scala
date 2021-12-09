@@ -2,7 +2,7 @@ import scala.collection.mutable as mutable
 
 @main
 def problem9_solve(): Unit = {
-  val input = Problem9.parse(Problem9.sample_input)
+  val input = Problem9.parse(Problem9.input)
 
   println(input)
   val low_points = input.depths.map((sample_point, depth) =>
@@ -15,24 +15,73 @@ def problem9_solve(): Unit = {
   val risk_level = low_points.values.flatten.map(_ + 1).sum
   println("Risk level: " + risk_level)
 
+  var graph: Graph = mutable.Map().withDefaultValue(Set())
+  val depths = input.toArray
+
+  for {
+    x0 <- 0 until input.max_x + 1
+    y0 <- 0 until input.max_y + 1
+    (x1, y1) <- Seq((x0 + 1, y0), (x0 - 1, y0), (x0, y0 + 1), (x0, y0 - 1))
+    if x1 >= 0 && x1 <= input.max_x && y1 >= 0 && y1 <= input.max_y
+    if depths(x1)(y1) >= depths(x0)(y0) && depths(x1)(y1) != 9
+    if (x1, y1) != (x0, y0)
+  } do {
+    graph((x0, y0)) = graph((x0, y0)) + ((x1, y1))
+  }
+
+  def clique(
+      graph: Graph,
+      visited: Set[Coord],
+      node: Coord
+  ): Set[(Int, Int)] = {
+    val neighbors = graph(node)
+    if neighbors.isEmpty then Set(node)
+    if neighbors.forall(visited) then Set(node)
+    else {
+      val next = neighbors.filterNot(visited)
+      next.flatMap(n => clique(graph, visited + n, n)) + node
+    }
+  }
+
+  val cliques: List[Int] = low_points
+    .filter(_._2.isDefined)
+    .keys
+    .toList
+    .map { low_point =>
+      val clique_nodes = clique(graph, Set(), low_point)
+      clique_nodes.size
+    }
+
+  val top_3 = cliques.sorted.takeRight(3)
+  println(top_3.product)
 }
+
+type Coord = (Int, Int)
+type Graph = mutable.Map[Coord, Set[Coord]]
 
 type Depth = Int
 case class HeightMap(depths: mutable.Map[(Int, Int), Depth]) {
-  override def toString: String = {
-    val max_x = depths.keys.map(_._1).max
-    val max_y = depths.keys.map(_._2).max
-    val min_x = depths.keys.map(_._1).min
-    val min_y = depths.keys.map(_._2).min
+  def max_x = depths.keys.map(_._1).max
+  def max_y = depths.keys.map(_._2).max
+  def min_x = depths.keys.map(_._1).min
+  def min_y = depths.keys.map(_._2).min
 
-    val rows = for (y <- min_y to max_y) yield {
-      val row = for (x <- min_x to max_x) yield {
-        depths((x, y)).toString
-      }
-      row.mkString("")
+  def toArray: Array[Array[Int]] = {
+    var array: Array[Array[Int]] = Array.fill(max_x + 1, max_y + 1)(-1)
+    for
+      x <- 0 to max_x
+      y <- 0 to max_y
+    do {
+      array(x)(y) = depths((x, y))
     }
-    rows.mkString("\n")
+    array
   }
+
+  override def toString: String = {
+    val array = toArray
+    array.transpose.map(_.mkString("")).mkString("\n")
+  }
+
   def get(x: Int, y: Int): Option[Depth] = depths.lift((x, y))
 
   def neighbors(x0: Int, y0: Int): Seq[(Int, Int)] = (for
