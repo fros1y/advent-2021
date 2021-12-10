@@ -3,17 +3,55 @@ import scala.collection.mutable as mutable
 def solve_problem9: Unit = {
   val lines = Problem10.input.split("\n").map(_.trim)
   val scores =
-    lines.flatMap(Problem10.process_line(_)).map(Problem10.closings(_))
-  println(scores.mkString(" "))
-  println(scores.sum)
+    lines.flatMap(Problem10.process_line_a(_)).map(Problem10.closings(_))
+  println("Part 1: " + scores.sum)
+
+  val autocompletions =
+    lines.map(l => Problem10.process_line_b(l)).map(Problem10.score_b).flatten
+  //println(autocompletions.mkString("\n"))
+
+  println("Part 2: " + Problem10.median(autocompletions))
 
 }
 
 object Problem10 {
 
+  def median(s: Seq[BigInt]) = {
+    val (lower, upper) = s.sortWith(_ < _).splitAt(s.size / 2)
+    if (s.size % 2 == 0) (lower.last + upper.head) / 2 else upper.head
+  }
+
   val openings = Map('[' -> ']', '(' -> ')', '{' -> '}', '<' -> '>')
   val closings = Map(')' -> 3, ']' -> 57, '}' -> 1197, '>' -> 25137)
-  def process_line(line: String): Option[Char] = {
+  val closings_b = Map(')' -> 1, ']' -> 2, '}' -> 3, '>' -> 4)
+
+  def score_b(chars: Seq[Char]): Option[BigInt] = {
+    if chars.isEmpty then None
+    else
+      val individual_scores = chars.map(closings_b(_))
+      Some(individual_scores.foldLeft(BigInt(0))((a, i) => a * 5 + i))
+  }
+
+  def process_line_b(line: String): Seq[Char] = {
+    var stack = mutable.Stack[Char]()
+    for char <- line.toList do {
+      if (openings.contains(char)) {
+        stack.push(openings(char))
+      } else {
+        if (stack.isEmpty) {
+          return stack.toList
+        }
+        val top = stack.pop()
+        if (top != char) {
+          return List()
+        }
+      }
+    }
+    return stack.toList
+
+  }
+
+  def process_line_a(line: String): Option[Char] = {
     var stack = mutable.Stack[Char]()
     for char <- line.toList do {
       if (openings.contains(char)) {
