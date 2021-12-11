@@ -8,12 +8,16 @@ def solve_problem11: Unit = {
   println(cave.map(_.mkString("")).mkString("\n"))
   println()
 
-  val total = (for i <- 0 to 99 yield {
-    Problem11.step(i, cave)
-    cave.flatten.filter(_.flashed).size
-  }).sum
+  val flashes = Stream
+    .from(0)
+    .map(i => {
+      Problem11.step(i, cave)
+      (i, cave.flatten.filter(_.flashed).size)
+    })
 
-  println(s"Total lit up: ${total}")
+  val (i, flashed) = flashes.dropWhile(_._2 < cave.flatten.size).head
+
+  println(s"Sync at ${i + 1}")
 }
 
 object Problem11 {
