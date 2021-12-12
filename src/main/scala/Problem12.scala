@@ -3,9 +3,7 @@ import scala.collection.mutable as mutable
 @main
 def solve_problem12: Unit = {
   val g = Problem12.parse(Problem12.input)
-  //println(g)
   val paths = Problem12.travel(g, Seq(), Problem12.Node.Small("start"))
-//  println(paths.mkString("\n"))
   println(paths.size)
 
 }
@@ -18,6 +16,16 @@ object Problem12 {
     def isSmall: Boolean = this match {
       case Small(_) => true
       case _        => false
+    }
+
+    def getId: String = this match {
+      case Big(id)   => id
+      case Small(id) => id
+    }
+
+    def isStart: Boolean = this match {
+      case Small("start") => true
+      case _              => false
     }
 
     def isEnd: Boolean = this match {
@@ -42,12 +50,19 @@ object Problem12 {
 
   type Graph = Map[Node, Set[Node]]
 
+  def valid_path2(path: Seq[Node]): Boolean = {
+    val smalls = path.filter(_.isSmall).groupBy(_.getId).mapValues(_.size)
+    val starts = path.filter(_.isStart)
+    val smalls_sum = smalls.values.sum
+    val smalls_size = smalls.size + 1
+    starts.size == 1 && smalls_sum <= smalls_size
+  }
+
   def travel(g: Graph, path: Seq[Node], candidate: Node): Set[Seq[Node]] = {
-    //println(s"at $candidate. Options are ${g(candidate).mkString(", ")}")
-    if (candidate.isSmall && path.contains(candidate)) then Set()
-    else if candidate.isEnd then Set(path.appended(candidate))
+    val new_path = path.appended(candidate)
+    if !valid_path2(new_path) then Set()
+    else if candidate.isEnd then Set(new_path)
     else
-      val new_path = path.appended(candidate)
       val next = for n <- g(candidate) yield travel(g, new_path, n)
       next.flatten
   }
