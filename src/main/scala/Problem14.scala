@@ -1,10 +1,12 @@
 import scala.collection.mutable as mutable
+import scala.collection.parallel.CollectionConverters._
+
 @main
 def solve_problem14: Unit = {
   val (input, rules_p) = Problem14.parse(Problem14.input)
   implicit val rules = rules_p
   val output =
-    Problem14.ntimes(10, Problem14.rewrite_b, input.toList)
+    Problem14.ntimes(40, Problem14.rewrite_b, input.toList)
   val freqs = output.groupBy(identity).mapValues(x => BigInt(x.size))
   val minFreq = freqs.values.min
   val maxFreq = freqs.values.max
@@ -40,7 +42,7 @@ object Problem14 {
   }
 
   def rewrite_b(input: Input)(using rules: Rules): List[Char] =
-    (for i <- input.indices yield {
+    (for i <- input.indices.par yield {
       val slice = input.slice(i, i + 2)
       val rule = rules.get(slice)
       rule match {
