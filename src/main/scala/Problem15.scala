@@ -2,8 +2,9 @@ import scala.collection.mutable
 @main
 def solve_problem15(): Unit = {
   val input = Problem15.parse(Problem15.input)
-  val max_x = input.keys.map(_._1).max
-  val max_y = input.keys.map(_._2).max
+  val max_x = (input.max_x + 1) * 5 - 1
+  val max_y = (input.max_y + 1) * 5 - 1
+
   val (distances, pathes) = Problem15.dijkstra(input)((0, 0))
   val distance = distances((max_x, max_y))
   println(distance)
@@ -12,8 +13,60 @@ def solve_problem15(): Unit = {
 
 object Problem15 {
 
+  case class Graph(
+      //inner: Map[Node, Map[Node, Int]],
+      inner: Map[Node, Int],
+      max_x: Int,
+      max_y: Int,
+      max_x_i: Int = 4,
+      max_y_i: Int = 4
+  ) {
+    //def apply(node: Node) = inner(node)
+    def neighbors(x0: Int, y0: Int): Seq[(Int, Int)] = (for
+      x <- x0 - 1 to x0 + 1; y <- y0 - 1 to y0 + 1
+      if ((x == x0 || y == y0) && !(x == x0 && y == y0))
+      if (x >= 0 && y >= 0)
+    yield (x, y))
+
+    def abs_to_base(node: Node): (Node, Int, Int) = {
+      val (x, y) = node
+      val x_real = x % (max_x + 1)
+      val y_real = y % (max_y + 1)
+      val x_i = x / (max_x + 1)
+      val y_i = y / (max_y + 1)
+      ((x_real, y_real), x_i, y_i)
+    }
+    def base_to_abs(node: Node, x_i: Int, y_i: Int): Option[Node] =
+      if x_i > max_x_i || y_i > max_y_i || x_i < 0 || y_i < 0 then None
+      else {
+        val x = node._1 + x_i * (max_x + 1)
+        val y = node._2 + y_i * (max_y + 1)
+        Some((x, y))
+      }
+
+    def lookup(node: Node): Option[Int] = {
+      val (x, y) = node
+      val x_real = x % (max_x + 1)
+      val y_real = y % (max_y + 1)
+      val x_i = x / (max_x + 1)
+      val y_i = y / (max_y + 1)
+      if x_i > max_x_i || y_i > max_y_i || x_i < 0 || y_i < 0 then None
+      else {
+        val base_d = inner((x_real, y_real))
+        val new_d = (((base_d + x_i + y_i) - 1) % 9) + 1
+        Some(new_d)
+      }
+    }
+
+    def apply(node: Node): Map[Node, Int] =
+      neighbors(node._1, node._2)
+        .map(n => (n, lookup(n)))
+        .filter(_._2.isDefined)
+        .map(n => (n._1, n._2.get))
+        .toMap
+  }
+
   type Node = (Int, Int)
-  type Graph = Map[Node, Map[Node, Int]]
 
   def shortestPath(g: Graph)(source: Node, target: Node): Option[List[Node]] = {
     val pred = dijkstra(g)(source)._2
@@ -51,29 +104,13 @@ object Problem15 {
     go(Set(source), Map(source -> 0), Map.empty)
   }
 
-  def neighbors(x0: Int, y0: Int): Seq[(Int, Int)] = (for
-    x <- x0 - 1 to x0 + 1; y <- y0 - 1 to y0 + 1
-    if ((x == x0 || y == y0) && !(x == x0 && y == y0))
-    if (x >= 0 && y >= 0)
-  yield (x, y))
-
   def parse(input: String): Graph = {
     val lines = input.split("\n")
     val lookup = (for
       (line, line_no) <- lines.zipWithIndex
       (digit, col_no) <- line.split("").zipWithIndex
     yield { (line_no, col_no) -> digit.toInt }).toMap
-    val edges =
-      for coord <- lookup.keys
-      yield {
-        val node_edges =
-          for
-            n <- neighbors(coord._1, coord._2)
-            distance <- lookup.get(n)
-          yield n -> distance
-        coord -> node_edges.toMap
-      }
-    edges.toMap
+    Graph(lookup, lookup.keys.map(_._1).max, lookup.keys.map(_._2).max)
   }
 
   val input =
