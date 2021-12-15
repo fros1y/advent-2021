@@ -4,103 +4,52 @@ def solve_problem15(): Unit = {
   val input = Problem15.parse(Problem15.input)
   val max_x = input.keys.map(_._1).max
   val max_y = input.keys.map(_._2).max
-  val path =
-    Problem15.Dijkstra.dijkstra(input, (0, 0), (max_x, max_y))
-
-  println(path._1)
+  val (distances, pathes) = Problem15.dijkstra(input)((0, 0))
+  val distance = distances((max_x, max_y))
+  println(distance)
 
 }
 
 object Problem15 {
 
   type Node = (Int, Int)
+  type Graph = Map[Node, Map[Node, Int]]
 
-  object Dijkstra {
-
-    type Key = Node
-    type PathInfo = (Int, List[Key])
-    type Path = List[Key]
-    type MinHeap[PathInfo] = mutable.PriorityQueue[PathInfo]
-
-    final def dijkstra(
-        weightedGraph: Map[Key, List[(Int, Key)]],
-        start: Key,
-        dest: Key
-    ): PathInfo =
-      dijkstraHelper(
-        weightedGraph,
-        mutable.PriorityQueue((0, List(start))),
-        dest
-      )
-
-    @annotation.tailrec
-    private final def dijkstraHelper(
-        weightedGraph: Map[Key, List[(Int, Key)]],
-        fringe: MinHeap[PathInfo],
-        dest: Key,
-        visited: Set[Key] = Set.empty[Key]
-    ): PathInfo = {
-
-      def updateFringe(
-          frng: MinHeap[PathInfo],
-          currentDist: Int,
-          currentPath: Path
-      ): MinHeap[PathInfo] =
-        (currentPath: @unchecked) match {
-          case keys @ key :: _ =>
-            weightedGraph(key)
-              .withFilter { case (_, k) => !visited.contains(k) }
-              .map { case (d, k) =>
-                (currentDist + d, k :: keys)
-              } // updated PathInfo's
-              .foreach { p => frng.enqueue(p) }
-
-            frng
-        }
-
-      if (fringe.isEmpty)
-        (0, Nil)
-      else {
-        (fringe.dequeue(): @unchecked) match {
-          case (dist, path @ `dest` :: _) =>
-            (dist, path.reverse)
-
-          case (dist, path @ key :: _) =>
-            dijkstraHelper(
-              weightedGraph,
-              updateFringe(fringe, dist, path),
-              dest,
-              visited + key
-            )
-        }
-      }
+  def shortestPath(g: Graph)(source: Node, target: Node): Option[List[Node]] = {
+    val pred = dijkstra(g)(source)._2
+    if (pred.contains(target) || source == target)
+      Some(iterateRight(target)(pred.get))
+    else None
+  }
+  def iterateRight[N](x: N)(f: N => Option[N]): List[N] = {
+    def go(x: N, acc: List[N]): List[N] = f(x) match {
+      case None    => x :: acc
+      case Some(y) => go(y, x :: acc)
     }
 
+    go(x, List.empty)
   }
-  // type Path[Key] = (Int, List[Key])
 
-  // def Dijkstra[Key](
-  //     lookup: Map[Key, List[(Int, Key)]],
-  //     fringe: List[Path[Key]],
-  //     dest: Key,
-  //     visited: Set[Key]
-  // ): Path[Key] = fringe match {
-  //   case (dist, path) :: fringe_rest =>
-  //     path match {
-  //       case key :: path_rest =>
-  //         if (key == dest) (dist, path.reverse)
-  //         else {
-  //           val paths = lookup(key).flatMap { case (d, key) =>
-  //             if (!visited.contains(key)) List((dist + d, key :: path)) else Nil
-  //           }
-  //           val sorted_fringe = (paths ++ fringe_rest).sortWith {
-  //             case ((d1, _), (d2, _)) => d1 < d2
-  //           }
-  //           Dijkstra(lookup, sorted_fringe, dest, visited + key)
-  //         }
-  //     }
-  //   case Nil => (0, List())
-  // }
+  def dijkstra(g: Graph)(source: Node): (Map[Node, Int], Map[Node, Node]) = {
+    def go(
+        active: Set[Node],
+        res: Map[Node, Int],
+        pred: Map[Node, Node]
+    ): (Map[Node, Int], Map[Node, Node]) =
+      if (active.isEmpty) (res, pred)
+      else {
+        val node = active.minBy(res)
+        val cost = res(node)
+        val neighbours = for {
+          (n, c) <- g(node) if cost + c < res.getOrElse(n, Int.MaxValue)
+        } yield n -> (cost + c)
+        val active1 = active - node ++ neighbours.keys
+        val preds = neighbours mapValues (_ => node)
+        go(active1, res ++ neighbours, pred ++ preds)
+      }
+
+    go(Set(source), Map(source -> 0), Map.empty)
+  }
 
   def neighbors(x0: Int, y0: Int): Seq[(Int, Int)] = (for
     x <- x0 - 1 to x0 + 1; y <- y0 - 1 to y0 + 1
@@ -108,7 +57,7 @@ object Problem15 {
     if (x >= 0 && y >= 0)
   yield (x, y))
 
-  def parse(input: String): Map[Node, List[(Int, Node)]] = {
+  def parse(input: String): Graph = {
     val lines = input.split("\n")
     val lookup = (for
       (line, line_no) <- lines.zipWithIndex
@@ -121,8 +70,8 @@ object Problem15 {
           for
             n <- neighbors(coord._1, coord._2)
             distance <- lookup.get(n)
-          yield (distance, n)
-        coord -> node_edges.toList
+          yield n -> distance
+        coord -> node_edges.toMap
       }
     edges.toMap
   }
