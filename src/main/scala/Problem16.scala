@@ -29,13 +29,15 @@ def solve_problem16 = {
   //"8A004A801A8002F478"
 //    "38006F45291200"
   //  "EE00D40C823060"
+  val sample_input = "9C0141080250320F1802104A08" //"04005AC33890"
   val binary = Problem16.toBinary(Problem16.input)
 //  println(binary)
   //println(binary.length)
 
   val packet = Problem16.parse(binary)
-//  println(packet)
-  println(Problem16.addVersions(packet))
+  //println(packet)
+  println(Problem16.eval(packet))
+  //println(Problem16.addVersions(packet))
 }
 
 object Problem16 {
@@ -44,6 +46,21 @@ object Problem16 {
     case Packet.Literal(version, _) => Integer.parseInt(version, 2)
     case Packet.Operator(version, _, contents) =>
       Integer.parseInt(version, 2) + contents.map(addVersions).sum
+  }
+
+  def eval(p: Packet): BigInt = p match {
+    case Packet.Literal(_, value) => BigInt(value, 2)
+    case Packet.Operator(_, op, contents) =>
+      val inputs = contents.map(eval)
+      op match {
+        case OperatorType.Sum         => inputs.reduce(_ + _)
+        case OperatorType.Product     => inputs.reduce(_ * _)
+        case OperatorType.Maximum     => inputs.max
+        case OperatorType.Minimum     => inputs.min
+        case OperatorType.GreaterThan => if inputs(0) > inputs(1) then 1 else 0
+        case OperatorType.LessThan    => if inputs(0) < inputs(1) then 1 else 0
+        case OperatorType.EqualTo     => if inputs(0) == inputs(1) then 1 else 0
+      }
   }
 
   val literal = string("100").debug("Literal type")
@@ -107,7 +124,7 @@ object Problem16 {
 
   val op_packet = (for
     version <- p_version.map(_.mkString)
-    command <- command.map(_.mkString)
+    command <- command.map(x => OperatorType.fromBinary(x.mkString))
     length <- total_length_mode <|> subpacket_count_mode
     subpacket_start_position <- col
     subpackets: Seq[Packet] <- length match {
@@ -127,15 +144,35 @@ object Problem16 {
 
   def toInt(input: String): Int = Integer.parseInt(input, 2)
 
+  enum OperatorType:
+    case Sum
+    case Product
+    case Minimum
+    case Maximum
+    case GreaterThan
+    case LessThan
+    case EqualTo
+  object OperatorType {
+    def fromBinary(x: String): OperatorType = toInt(x) match {
+      case 0 => Sum
+      case 1 => Product
+      case 2 => Minimum
+      case 3 => Maximum
+      case 5 => GreaterThan
+      case 6 => LessThan
+      case 7 => EqualTo
+    }
+  }
+
   enum Packet(version: String):
     case Literal(version: String, contents: String) extends Packet(version)
-    case Operator(version: String, op: String, contents: Seq[Packet])
+    case Operator(version: String, op: OperatorType, contents: Seq[Packet])
         extends Packet(version)
     override def toString: String = this match {
       case Literal(version, contents) =>
         s"Literal(${toInt(version)}, ${toInt(contents)})"
       case Operator(version, op, contents) =>
-        s"Operator(${toInt(version)}, ${toInt(op)}, ${contents.mkString(", ")})"
+        s"Operator(${toInt(version)}, $op, ${contents.mkString(", ")})"
     }
 
   val hexToBinaryMap = Map(
