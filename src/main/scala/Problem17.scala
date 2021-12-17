@@ -2,26 +2,18 @@
 def solve_problem17: Unit = {
   val input = Problem17.parse(Problem17.input)
 
-  // println(input)
-  // val traj = Problem17.Trajectory(17, -4)
-  // val path = input.launch(traj)
-  // val result = input.landed_on_target(path)
-  // println(path)
-  // println(result)
-
-  val paths = for
+  val trajectories = (for
     f <- 0 to input.x_range.end
     v <- -(input.y_range.min.abs) to input.y_range.min.abs
     trajectory = Problem17.Trajectory(f, v)
     //_ = println(s"$f, $v")
     path = input.launch(trajectory)
     if input.landed_on_target(path)
-  yield path
+  yield trajectory).toSet
 
-  //println(paths)
-
-  val max_y = paths.flatten.map(_._2).max
-  println(max_y)
+  //val max_y = paths.flatten.map(_._2).max
+  //println(max_y)
+  println(trajectories.size)
 }
 
 object Problem17 {
