@@ -32,24 +32,6 @@ def solve_problem18 = {
     if a != b
   yield (a + b).magnitude
   println(magnitudes.max)
-
-//   for e <- parse("""[[[[[9,8],1],2],3],4]
-// [7,[6,[5,[4,[3,2]]]]]
-// [[6,[5,[4,[3,2]]]],1]
-// [[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]
-// [[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]""") do {
-//     println(e)
-//     val e_step = e.explode_step
-//     println("\t\t\t" + e_step)
-//     println()
-
-//   }
-
-  //val a = parse("""[[[0,[4,5]],[0,0]],[[[4,5],[2,6]],[9,5]]]""").head
-  //val b = parse("""[7,[[[3,7],[4,3]],[[6,3],[8,8]]]]""").head
-//  println(a + b)
-  //println(a + b)
-
 }
 object Problem18 {
 
@@ -74,13 +56,7 @@ object Problem18 {
       case Number(x)      => x.toString
       case Pair(fst, snd) => s"[$fst,$snd]"
     }
-    def +(that: Snailadic): Snailadic = {
-      val added = Pair(this, that)
-      //println(s"$this + $that = $added")
-      val reduction = added.reduce
-      //println(s"$added reduced to $reduction")
-      reduction
-    }
+    def +(that: Snailadic): Snailadic = Pair(this, that).reduce
 
     def getNumber: Option[Int] = this match {
       case Number(x) => Some(x)
@@ -90,22 +66,13 @@ object Problem18 {
       case Pair(_, _) => true
       case _          => false
     }
+
     def reduce: Snailadic =
-      whileSome(
-        this,
-        x => {
-          val stepped = x.step
-//          println(s"Stepped $x to $stepped")
-          stepped
-        }
-      ).lastOption.getOrElse(this)
+      whileSome(this, x => x.step).lastOption.getOrElse(this)
 
     def step: Option[Snailadic] = {
       val exploded = whileSome(this, x => x.explode_step).lastOption
-//      println(s"Exploded $this to $exploded")
       val split = exploded.getOrElse(this).split_step
-//        whileSome(exploded.getOrElse(this), x => x.split_step).lastOption
-      //    println(s"Split $this to $split")
 
       (exploded, split) match {
         case (_, Some(y)) if y != this    => Some(y)
@@ -116,7 +83,6 @@ object Problem18 {
 
     def split_step: Option[Snailadic] = for
       target <- Loc(this, Context.Top, 0).firstSplitNumber
-//      _ = println(s"Splitting $this at $target")
       value <- target.tree.getNumber
     yield target
       .update(
@@ -131,30 +97,21 @@ object Problem18 {
     def explode_step: Option[Snailadic] = {
       for {
         target <- Loc(this, Context.Top, 0).firstExplodePair
-//        _ = println(s"Exploding $this at $target")
         left <- target.left
         left_value <- left.tree.getNumber
         right <- target.right
         right_value <- right.tree.getNumber
         new_target = target.update(Number(0))
-        //      _ = println("new_target: " + new_target.upmost.tree)
-
         lefted_updated = (for {
           update_location <- new_target.prev
-//          _ = println("left_update_location: " + update_location)
           orig_value <- update_location.tree.getNumber
-          //        _ = println("left_update value: " + orig_value)
           updated = update_location.update(Number(left_value + orig_value))
           restored <- updated.next
         } yield restored).getOrElse(new_target)
 
-//        _ = println("lefted_updated: " + lefted_updated.upmost.tree)
-
         righted_updated = (for {
           update_location <- lefted_updated.next
-//          _ = println("right_update_location: " + update_location)
           orig_value <- update_location.tree.getNumber
-          //        _ = println("right_update value: " + orig_value)
           updated = update_location.update(Number(right_value + orig_value))
           restored <- updated.prev
         } yield restored).getOrElse(lefted_updated)
@@ -182,7 +139,6 @@ object Problem18 {
     }
 
     def firstExplodePair: Option[Loc] =
-//      println("fep: " + tree + " depth: " + this.depth)
       tree match {
         case Number(_)                                    => None
         case Pair(Number(_), Number(_)) if this.depth > 3 => Some(this)
