@@ -44,7 +44,9 @@ def solve_problem18 = {
 [[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]""") do {
     println(e)
     val e_step = e.explode_step
-    println(e_step)
+    println("\t\t\t" + e_step)
+    println()
+
   }
 
 }
@@ -56,7 +58,7 @@ object Problem18 {
 
     override def toString = this match {
       case Number(x)      => x.toString
-      case Pair(fst, snd) => s"[$fst, $snd]"
+      case Pair(fst, snd) => s"[$fst,$snd]"
     }
     def +(that: Snailadic): Snailadic = Pair(this, that).reduce
     def getNumber: Option[Int] = this match {
@@ -70,9 +72,7 @@ object Problem18 {
     def reduce: Snailadic = this
     def explode_step: Option[Snailadic] = {
       for {
-        target <- Loc(this, Context.Top, 0).first.get.firstPairWhere(x =>
-          x.tree.isPair && x.depth >= 3
-        )
+        target <- Loc(this, Context.Top, 0).firstExplodePair
         _ = println("target: " + target)
         left <- target.left
         left_value <- left.tree.getNumber
@@ -80,29 +80,29 @@ object Problem18 {
         right_value <- right.tree.getNumber
         new_target = target.update(Number(0))
         _ = println("new_target: " + new_target.upmost.tree)
-        left_update_location = new_target.prev
-        lefted_updated = left_update_location match {
-          case Some(p) => {
-            val pv = p.tree.getNumber.get
-            p.update(Number(left_value + pv)).next.get
-          }
-          case _ => new_target
-        }
-        right_update_location = lefted_updated.next
-        righted_updated = right_update_location match {
-          case Some(p) => {
-            val pv = p.tree.getNumber.get
-            p.update(Number(right_value + pv)).prev.get
-          }
-          case _ => lefted_updated
-        }
+
+        lefted_updated = (for {
+          update_location <- new_target.prev
+          _ = println("left_update_location: " + update_location)
+          orig_value <- update_location.tree.getNumber
+          _ = println("left_update value: " + orig_value)
+          updated = update_location.update(Number(left_value + orig_value))
+          restored <- updated.next
+        } yield restored).getOrElse(new_target)
+
+        _ = println("lefted_updated: " + lefted_updated.upmost.tree)
+
+        righted_updated = (for {
+          update_location <- lefted_updated.next
+          _ = println("right_update_location: " + update_location)
+          orig_value <- update_location.tree.getNumber
+          _ = println("right_update value: " + orig_value)
+          updated = update_location.update(Number(right_value + orig_value))
+          restored <- updated.prev
+        } yield restored).getOrElse(lefted_updated)
+
       } yield righted_updated.upmost.tree
     }
-
-    //    update(Snailadic.Number(left_value + right_value))
-    // left_update_location_value <- left_update_location.tree.getNumber
-    // left_updated <- left_update_location.update(Number(left_value + left_update_location_value))
-    // right_update_position
 
   }
   import Snailadic._
@@ -115,13 +115,13 @@ object Problem18 {
   import Context._
 
   case class Loc(tree: Snailadic, context: Context, depth: Int = 0) {
-    def firstPairWhere(f: Loc => Boolean): Option[Loc] = {
-      println("firstPairWhere: " + this)
-      if this.tree.isPair && f(this) then Some(this)
-      else if this.nextPair.isDefined then this.nextPair.get.firstPairWhere(f)
-      else None
-    }
-    //   then this.up.get.firstWhere(f)
+    // def firstPairWhere(f: Loc => Boolean): Option[Loc] = {
+    //   println("firstPairWhere: " + this)
+    //   if this.tree.isPair && f(this) then Some(this)
+    //   else if this.nextPair.isDefined then this.nextPair.get.firstPairWhere(f)
+    //   else None
+    // }
+    // //   then this.up.get.firstWhere(f)
     //   else if f(this) then Some(this)
     //   else {
     //     val next = this.next
@@ -143,6 +143,19 @@ object Problem18 {
 
     //   }
     // }
+
+    def firstExplodePair: Option[Loc] =
+      println("fep: " + tree + " depth: " + this.depth)
+      tree match {
+        case Number(_)                                    => None
+        case Pair(Number(_), Number(_)) if this.depth > 3 => Some(this)
+        case Pair(Number(_), Number(_))                   => None
+        //case Pair(Number(_), r) => this.right.get.firstExplodePair
+        case Pair(l, r) => {
+          val lep = this.left.get.firstExplodePair
+          if (lep.isDefined) then lep else this.right.get.firstExplodePair
+        }
+      }
 
     def first: Option[Loc] = {
       (context, tree) match {
@@ -169,12 +182,7 @@ object Problem18 {
       righted <- upped.right
       target <- if righted == this then upped.next else Some(righted)
       value <- target.first
-    } yield target
-
-    def nextPair: Option[Loc] = (this.next, this.up) match {
-      case (None    => None
-      case Some(n) if 
-    }
+    } yield value
 
     def left: Option[Loc] = (tree, context) match {
       case (Pair(l, r), c) => Some(Loc(l, L(c, r), depth + 1))
