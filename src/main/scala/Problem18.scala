@@ -22,45 +22,66 @@ import parsley.character.isWhitespace
 @main
 def solve_problem18 = {
   import Problem18._
-  val parsed = parse(sample_input)
-//   val test_case = parsed(1)
-//   println(test_case)
-//   val zipper = Loc(test_case, Context.Top, 0)
-//   println(zipper.tree)
-//   println(zipper.left.get.tree)
-//   println(zipper.left.get.right.get.tree)
-// //  println(zipper.left.get.right.get.next.get.tree)
-//   println(
-//     zipper.left.get.right.get
-//       .update(Snailadic.Number(6))
-//       .upmost
-//       .tree
-//  )
+  val parsed = parse(input)
+  val sum = parsed.tail.foldLeft(parsed.head)((a, b) => a + b)
+  println(sum.magnitude)
 
-  for e <- parse("""[[[[[9,8],1],2],3],4]
-[7,[6,[5,[4,[3,2]]]]]
-[[6,[5,[4,[3,2]]]],1]
-[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]
-[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]""") do {
-    println(e)
-    val e_step = e.explode_step
-    println("\t\t\t" + e_step)
-    println()
+  val magnitudes = for
+    a <- parsed
+    b <- parsed
+    if a != b
+  yield (a + b).magnitude
+  println(magnitudes.max)
 
-  }
+//   for e <- parse("""[[[[[9,8],1],2],3],4]
+// [7,[6,[5,[4,[3,2]]]]]
+// [[6,[5,[4,[3,2]]]],1]
+// [[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]
+// [[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]""") do {
+//     println(e)
+//     val e_step = e.explode_step
+//     println("\t\t\t" + e_step)
+//     println()
+
+//   }
+
+  //val a = parse("""[[[0,[4,5]],[0,0]],[[[4,5],[2,6]],[9,5]]]""").head
+  //val b = parse("""[7,[[[3,7],[4,3]],[[6,3],[8,8]]]]""").head
+//  println(a + b)
+  //println(a + b)
 
 }
 object Problem18 {
+
+  def whileSome[A](initial: A, f: A => Option[A]): Stream[A] = {
+    def loop(a: A): Stream[A] = f(a) match {
+      case Some(a) => a #:: loop(a)
+      case None    => Stream.empty
+    }
+    initial #:: loop(initial)
+  }
 
   enum Snailadic {
     case Number(x: Int)
     case Pair(fst: Snailadic, snd: Snailadic)
 
+    def magnitude: Int = this match {
+      case Number(x)      => x
+      case Pair(fst, snd) => fst.magnitude * 3 + snd.magnitude * 2
+    }
+
     override def toString = this match {
       case Number(x)      => x.toString
       case Pair(fst, snd) => s"[$fst,$snd]"
     }
-    def +(that: Snailadic): Snailadic = Pair(this, that).reduce
+    def +(that: Snailadic): Snailadic = {
+      val added = Pair(this, that)
+      //println(s"$this + $that = $added")
+      val reduction = added.reduce
+      //println(s"$added reduced to $reduction")
+      reduction
+    }
+
     def getNumber: Option[Int] = this match {
       case Number(x) => Some(x)
       case _         => None
@@ -69,34 +90,71 @@ object Problem18 {
       case Pair(_, _) => true
       case _          => false
     }
-    def reduce: Snailadic = this
+    def reduce: Snailadic =
+      whileSome(
+        this,
+        x => {
+          val stepped = x.step
+//          println(s"Stepped $x to $stepped")
+          stepped
+        }
+      ).lastOption.getOrElse(this)
+
+    def step: Option[Snailadic] = {
+      val exploded = whileSome(this, x => x.explode_step).lastOption
+//      println(s"Exploded $this to $exploded")
+      val split = exploded.getOrElse(this).split_step
+//        whileSome(exploded.getOrElse(this), x => x.split_step).lastOption
+      //    println(s"Split $this to $split")
+
+      (exploded, split) match {
+        case (_, Some(y)) if y != this    => Some(y)
+        case (Some(x), None) if x != this => Some(x)
+        case _                            => None
+      }
+    }
+
+    def split_step: Option[Snailadic] = for
+      target <- Loc(this, Context.Top, 0).firstSplitNumber
+//      _ = println(s"Splitting $this at $target")
+      value <- target.tree.getNumber
+    yield target
+      .update(
+        Pair(
+          Number((value / 2.0).floor.toInt),
+          Number((value / 2.0).ceil.toInt)
+        )
+      )
+      .upmost
+      .tree
+
     def explode_step: Option[Snailadic] = {
       for {
         target <- Loc(this, Context.Top, 0).firstExplodePair
-        _ = println("target: " + target)
+//        _ = println(s"Exploding $this at $target")
         left <- target.left
         left_value <- left.tree.getNumber
         right <- target.right
         right_value <- right.tree.getNumber
         new_target = target.update(Number(0))
-        _ = println("new_target: " + new_target.upmost.tree)
+        //      _ = println("new_target: " + new_target.upmost.tree)
 
         lefted_updated = (for {
           update_location <- new_target.prev
-          _ = println("left_update_location: " + update_location)
+//          _ = println("left_update_location: " + update_location)
           orig_value <- update_location.tree.getNumber
-          _ = println("left_update value: " + orig_value)
+          //        _ = println("left_update value: " + orig_value)
           updated = update_location.update(Number(left_value + orig_value))
           restored <- updated.next
         } yield restored).getOrElse(new_target)
 
-        _ = println("lefted_updated: " + lefted_updated.upmost.tree)
+//        _ = println("lefted_updated: " + lefted_updated.upmost.tree)
 
         righted_updated = (for {
           update_location <- lefted_updated.next
-          _ = println("right_update_location: " + update_location)
+//          _ = println("right_update_location: " + update_location)
           orig_value <- update_location.tree.getNumber
-          _ = println("right_update value: " + orig_value)
+          //        _ = println("right_update value: " + orig_value)
           updated = update_location.update(Number(right_value + orig_value))
           restored <- updated.prev
         } yield restored).getOrElse(lefted_updated)
@@ -115,42 +173,20 @@ object Problem18 {
   import Context._
 
   case class Loc(tree: Snailadic, context: Context, depth: Int = 0) {
-    // def firstPairWhere(f: Loc => Boolean): Option[Loc] = {
-    //   println("firstPairWhere: " + this)
-    //   if this.tree.isPair && f(this) then Some(this)
-    //   else if this.nextPair.isDefined then this.nextPair.get.firstPairWhere(f)
-    //   else None
-    // }
-    // //   then this.up.get.firstWhere(f)
-    //   else if f(this) then Some(this)
-    //   else {
-    //     val next = this.next
-    //     println("next: " + next)
-    //     next match {
-    //       case Some(x) => x.firstWhere(f)
-    //       case None    => None
-    //     }
-    //   }
-    // }
-    // def nextPair: Option[Loc] = {
-    //   (context, tree) match {
-    //     case (Top, Number(_))                  => None
-    //     case (Top, Pair(Number(_), Number(_))) => Some(this)
-    //     case (Top, Pair(Pair(_, _), _))        => this.left.get.nextPair
-    //     case (Top, Pair(Number(_), r))         => this.right.get.nextPair
-    //     case (_, Number(_))                    => this.up.get.nextPair
-    //     case (_, Pair(_, _))                   => this.up.get.nextPair
-
-    //   }
-    // }
+    def firstSplitNumber: Option[Loc] = tree match {
+      case Number(x) if x >= 10 => Some(this)
+      case Pair(l, r) =>
+        val lep = this.left.get.firstSplitNumber
+        if (lep.isDefined) then lep else this.right.get.firstSplitNumber
+      case _ => None
+    }
 
     def firstExplodePair: Option[Loc] =
-      println("fep: " + tree + " depth: " + this.depth)
+//      println("fep: " + tree + " depth: " + this.depth)
       tree match {
         case Number(_)                                    => None
         case Pair(Number(_), Number(_)) if this.depth > 3 => Some(this)
         case Pair(Number(_), Number(_))                   => None
-        //case Pair(Number(_), r) => this.right.get.firstExplodePair
         case Pair(l, r) => {
           val lep = this.left.get.firstExplodePair
           if (lep.isDefined) then lep else this.right.get.firstExplodePair
@@ -207,52 +243,6 @@ object Problem18 {
 
   }
 
-  //   case (Number(_), Top) => this
-  //   case (Number(_), L(_, _)) => this
-  //   case (Number(_), R(_, _)) => this
-  //   case (Pair(fst, snd), Top) => Loc(fst, L(Top, fst))
-  //   case (Pair(fst, snd), L(ctx, left)) => Loc(fst, L(ctx, fst))
-  //   case (Pair(fst, snd), R(right, ctx)) => Loc(snd, R(snd, L(ctx, snd)))
-  // }
-
-  // enum Action {
-  //   case AddLeft(x: Int)
-  //   case AddRight(x: Int)
-  //   case Split
-  // }
-  // object Snailadic {
-
-  //   def reduce(
-  //       snailadic: Snailadic,
-  //       depth: Int = 0
-  //   ): (Snailadic, Set[Action]) =
-  //     if depth >= 3 then {
-  //       snailadic match {
-  //         case Snailadic.Number(x) => (Snailadic.Number(x), Set.empty)
-  //         case Snailadic.Pair(Snailadic.Number(a), Snailadic.Number(b)) => (Snailadic.Number(0), Set(AddLeft(a), AddRight(b)))
-  //         case Snailadic.Pair(Snailadic.Number(a), Snailadic.Pair(right)) =>
-
-  //          if depth == 3 =>
-  //         (Snailadic.Pair(Snailadic.Number(0),  )), Set.empty)
-
-  //       //   val (a1, acts_a) = reduce(a, depth + 1)
-  //       //   val (b1, acts_b) = reduce(b, depth + 1)
-  //       //   (Snailadic.Pair(a1, b1), (l, r1))
-  //       // case Snailadic.Number(x) if x >= 10 =>
-  //       //   (
-  //       //     Pair(
-  //       //       Snailadic.Number((x.toDouble / 2.0).floor.toInt),
-  //       //       Snailadic.Number((x.toDouble / 2.0).ceil.toInt)
-  //       //     ),
-  //       //     Set()
-  //       //   )
-
-  //     }
-  //   def +(a: Snailadic, b: Snailadic): Snailadic =
-  //     val initial = Snailadic.Pair(a, b)
-  //     reduce(initial)
-  // }
-
   val number: Parsley[Snailadic.Number] =
     some(digit).map(x => Snailadic.Number(x.foldLeft(0)(_ + _.toString.toInt)))
 
@@ -272,11 +262,126 @@ object Problem18 {
       case Success(p) => p
       case Failure(e) => throw new Exception(e.toString)
     }
-  val sample_input = """[1,2]
-[[1,2],3]
-[9,[8,7]]
-[[1,9],[8,5]]
-[[[[1,2],[3,4]],[[5,6],[7,8]]],9]
-[[[9,[3,8]],[[0,9],6]],[[[3,7],[4,9]],3]]
-[[[[1,3],[5,3]],[[1,3],[8,7]]],[[[4,9],[6,9]],[[8,2],[7,3]]]]"""
+  val sample_input1 = """[[[0,[4,5]],[0,0]],[[[4,5],[2,6]],[9,5]]]
+[7,[[[3,7],[4,3]],[[6,3],[8,8]]]]
+[[2,[[0,8],[3,4]]],[[[6,7],1],[7,[1,6]]]]
+[[[[2,4],7],[6,[0,5]]],[[[6,8],[2,8]],[[2,1],[4,5]]]]
+[7,[5,[[3,8],[1,4]]]]
+[[2,[2,2]],[8,[8,1]]]
+[2,9]
+[1,[[[9,3],9],[[9,0],[0,7]]]]
+[[[5,[7,4]],7],1]
+[[[[4,2],2],6],[8,7]]"""
+
+  val sample_input2 = """[[[0,[5,8]],[[1,7],[9,6]]],[[4,[1,2]],[[1,4],2]]]
+[[[5,[2,8]],4],[5,[[9,9],0]]]
+[6,[[[6,2],[5,6]],[[7,6],[4,7]]]]
+[[[6,[0,7]],[0,9]],[4,[9,[9,0]]]]
+[[[7,[6,4]],[3,[1,3]]],[[[5,5],1],9]]
+[[6,[[7,3],[3,2]]],[[[3,8],[5,7]],4]]
+[[[[5,4],[7,7]],8],[[8,3],8]]
+[[9,3],[[9,9],[6,[4,9]]]]
+[[2,[[7,7],7]],[[5,8],[[9,3],[0,2]]]]
+[[[[5,2],5],[8,[3,7]]],[[5,[7,5]],[4,4]]]"""
+
+  val input = """[[[[4,6],4],[1,7]],[[[1,6],[8,4]],[1,1]]]
+[[[[8,5],[9,2]],1],[[2,5],[[9,4],[5,9]]]]
+[[[[7,3],0],[8,9]],6]
+[[6,[[7,2],[6,2]]],[[[9,8],9],[9,6]]]
+[2,[[[9,2],6],[[5,3],[6,7]]]]
+[[[5,[9,6]],0],[[[2,8],[7,0]],[7,[4,4]]]]
+[[[[5,0],2],[0,1]],4]
+[2,[8,8]]
+[[[[2,5],[6,8]],[[9,8],4]],[[[2,3],[5,8]],[9,5]]]
+[[[[0,7],[9,4]],[[1,0],9]],[[[8,8],[7,2]],[3,[6,5]]]]
+[[[[3,2],8],1],[[4,[3,4]],[[6,5],[0,6]]]]
+[[[7,8],8],[0,[5,2]]]
+[[3,[3,3]],[[[6,9],[1,1]],[6,[2,9]]]]
+[[[[9,7],[6,8]],4],[[[8,2],[2,9]],[8,[6,2]]]]
+[[[[7,3],2],[9,6]],[[[1,7],[0,0]],[4,9]]]
+[[8,[7,[1,0]]],7]
+[[[7,[5,1]],0],[[8,[5,3]],4]]
+[1,[[[2,6],2],[1,[6,0]]]]
+[[[5,8],[[9,1],1]],[[3,[5,0]],5]]
+[[[[1,5],[4,9]],8],[[7,0],6]]
+[9,[[0,[1,0]],6]]
+[[[[6,8],6],9],[[7,3],2]]
+[[9,[[8,7],4]],[[[4,0],[9,0]],[8,1]]]
+[[[2,[4,4]],[7,[0,1]]],[8,[[8,6],[4,0]]]]
+[0,9]
+[[[[1,8],[7,4]],[[5,0],[6,1]]],[5,7]]
+[[[[8,2],[9,2]],[8,[8,4]]],[0,4]]
+[[[[0,7],[5,8]],3],6]
+[[[7,[3,4]],[3,[1,5]]],2]
+[[[1,[4,2]],5],[[1,2],1]]
+[[[[8,2],[0,9]],1],[[[9,0],[3,5]],[8,[8,0]]]]
+[[[0,5],[1,[3,3]]],[[[1,0],[5,2]],[7,5]]]
+[[[4,[7,3]],[0,9]],[[2,0],8]]
+[[[[2,2],8],[7,1]],5]
+[[1,[[3,8],7]],[[7,[5,8]],[4,[1,7]]]]
+[[[[2,7],4],[8,[9,1]]],[[5,2],[4,3]]]
+[[2,[7,2]],[[8,[0,8]],[0,[4,2]]]]
+[[6,[6,[7,4]]],[[7,[2,0]],[[8,2],8]]]
+[[[7,[1,7]],[[4,1],4]],[1,[4,6]]]
+[1,[[1,0],[[0,3],[6,9]]]]
+[[[[8,6],0],[[2,8],[3,0]]],[[[8,2],7],[[3,0],5]]]
+[[[[2,8],4],[2,[0,7]]],[[3,[1,2]],[[8,0],[4,2]]]]
+[1,8]
+[[5,6],6]
+[[[[1,0],[3,6]],[[4,0],1]],[0,7]]
+[[[5,[9,6]],[7,[1,2]]],2]
+[[[6,4],[[5,6],[1,8]]],[[[9,0],[7,7]],[[5,8],[6,8]]]]
+[8,5]
+[5,[[[6,8],8],0]]
+[[[[5,7],[0,0]],[6,[0,0]]],[[[5,5],3],[[1,1],[3,4]]]]
+[[[4,0],[[8,6],2]],[[3,[3,1]],[[2,8],[7,2]]]]
+[[[8,7],[[5,5],[5,3]]],4]
+[[[[5,4],1],[3,4]],[3,5]]
+[[[6,5],[[6,3],6]],4]
+[[[[2,2],[7,1]],[6,6]],[[8,[8,7]],[[1,6],[3,0]]]]
+[[4,[[5,0],[7,4]]],[3,1]]
+[[[3,[5,8]],5],[1,[[9,6],3]]]
+[[0,[[3,0],[8,7]]],[[1,3],3]]
+[5,[[3,[3,3]],[3,6]]]
+[[[[7,3],8],3],[2,[[9,8],2]]]
+[[[2,4],[[1,2],5]],[[[1,2],[6,0]],3]]
+[[9,[[1,1],[1,7]]],[1,[2,[9,1]]]]
+[[[5,[0,0]],5],[6,[0,1]]]
+[[3,[[6,5],7]],[[7,8],3]]
+[[5,[2,6]],8]
+[[6,[0,[3,0]]],[1,2]]
+[3,[[[3,7],2],[[4,0],6]]]
+[[[8,[2,7]],[4,1]],[[2,[4,2]],3]]
+[[3,2],[[[8,8],[8,6]],[[5,3],1]]]
+[1,[2,[[3,2],[2,9]]]]
+[8,[[9,1],[[8,4],[9,9]]]]
+[[[4,[4,6]],[1,8]],[[7,7],[[7,4],3]]]
+[[[8,2],[[9,7],[0,8]]],[[4,4],[[6,1],5]]]
+[[[3,[6,6]],[[8,6],[3,7]]],[[7,9],[[5,3],8]]]
+[[[8,9],[8,6]],[[[3,3],[2,9]],[[6,6],9]]]
+[8,[[[3,0],5],2]]
+[[[[1,3],1],[[1,9],4]],[7,[3,1]]]
+[[[[9,3],3],[[6,8],7]],[[[2,0],3],[8,[3,6]]]]
+[[[[7,1],[8,1]],[[4,6],[5,9]]],[[[4,5],3],5]]
+[6,[[3,[0,0]],[6,6]]]
+[[[[8,8],[7,6]],3],[[[7,7],[1,1]],[[1,8],[1,4]]]]
+[[9,[8,[3,4]]],[[6,2],[1,5]]]
+[[5,[3,3]],[5,[0,5]]]
+[[[[8,9],5],[1,9]],[[5,[2,8]],[[6,4],[9,4]]]]
+[2,6]
+[[[[1,4],8],5],[5,[0,[1,7]]]]
+[[[[1,0],[9,9]],[0,9]],[[[5,4],[1,6]],[9,[6,7]]]]
+[[[7,1],5],[[3,2],5]]
+[[9,[[8,8],[7,0]]],[5,[3,[1,3]]]]
+[[[[5,2],[7,5]],[4,[6,7]]],[[[8,1],6],[2,[6,6]]]]
+[[[5,7],[6,[8,2]]],[8,2]]
+[[[[5,7],8],[[9,8],2]],[[2,8],[[7,6],3]]]
+[[1,[[1,6],1]],[0,[[5,9],[9,1]]]]
+[[[[1,4],[5,0]],[[5,5],[9,3]]],[[6,4],[4,[4,6]]]]
+[7,[[5,[4,8]],[[5,9],2]]]
+[[[[2,9],[1,8]],[4,2]],0]
+[[5,[[0,9],[3,7]]],[2,[6,[4,8]]]]
+[[0,[5,5]],0]
+[[[5,0],[[0,5],8]],[6,[[8,7],[6,5]]]]
+[[[5,[8,2]],[8,4]],[[6,2],[8,[7,0]]]]"""
 }
