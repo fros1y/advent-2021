@@ -1,1 +1,1 @@
-addSbtPlugin("ch.epfl.scala" % "sbt-scalafix" % "0.9.33")
+libraryDependencies += "ai.kien" %% "python-native-libs" % "0.2.1"

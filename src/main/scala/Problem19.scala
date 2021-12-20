@@ -20,22 +20,31 @@ import parsley.token.{LanguageDef, Lexer, Predicate, Parser}
 import parsley.character.isWhitespace
 import scala.collection.parallel.CollectionConverters._
 import parsley.debug.DebugCombinators
+import me.shadaj.scalapy.py
+import me.shadaj.scalapy.py.SeqConverters
+import me.shadaj.scalapy.py.writableSeqElem
 
 import Problem19._
 @main
 def solve_problem19 = {
   val input = parse(sample_input)
+  val np1 = input(0).toNumpy
+  val np2 = input(1).toNumpy
+  val shape = np1.shape.as[(Int, Int)]
+
+  println(shape)
 //  println(input)
 
-  val scanner0 = input(0)
-  val scanner1 = input(1)
+  //val scanner0 = input(0)
+  //val scanner1 = input(1)
 
-  val result = scanner0.find_mapping(scanner1)
-  println(result)
+  //val result = scanner0.find_mapping(scanner1)
+  //println(result)
 
 }
 
 object Problem19 {
+  val np = py.module("numpy")
 
   val natural = some(digit).map(_.mkString.toInt)
   val integer = for
@@ -67,6 +76,10 @@ object Problem19 {
       case n => roty_n(n % 4)
     }
     def rot(nx: Int, ny: Int, nz: Int) = rotx_n(nx) roty_n (ny) rotz_n (nz)
+
+    def toTuple: (Int, Int, Int) = {
+      (x, y, z)
+    }
   }
 
   object Coord {
@@ -96,6 +109,9 @@ object Problem19 {
       readings: Set[Coord]
   ) {
 
+    def toNumpy = {
+      np.array(readings.toSeq.map(_.toTuple).toPythonProxy)
+    }
     def find_mapping(other: Scanner): Option[(Coord, Coord)] = {
       val max_distance =
         this.readings.map(r => List(r.z.abs, r.x.abs, r.y.abs).max).max
