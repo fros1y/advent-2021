@@ -20,6 +20,7 @@ lazy val root = project
       "com.novocode" % "junit-interface" % "0.11" % "test",
       "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4",
       "me.shadaj" %% "scalapy-core" % "0.5.1+1-a19bda77",
-      "com.github.j-mie6" %% "parsley" % "3.2.1"
+      "com.github.j-mie6" %% "parsley" % "3.2.1",
+      "co.fs2" %% "fs2-core" % "3.2.0"
     )
   )
